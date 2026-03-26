@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ReelWise — Turn videos into knowledge</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -18,27 +19,10 @@
       --green:    #22c55e;
       --red:      #ef4444;
       --radius:   12px;
-
-      /* Platform colours */
       --tiktok:    #fe2c55;
       --instagram: #e1306c;
       --youtube:   #ff0000;
       --linkedin:  #0077b5;
-      --web:       #6b7280;
-
-      /* Category colours */
-      --cat-career:        #3b82f6;
-      --cat-finance:       #22c55e;
-      --cat-health:        #ef4444;
-      --cat-fitness:       #f59e0b;
-      --cat-education:     #8b5cf6;
-      --cat-technology:    #06b6d4;
-      --cat-business:      #6366f1;
-      --cat-lifestyle:     #ec4899;
-      --cat-food:          #f97316;
-      --cat-travel:        #14b8a6;
-      --cat-entertainment: #a855f7;
-      --cat-other:         #6b7280;
     }
 
     body {
@@ -48,688 +32,516 @@
       min-height: 100vh;
     }
 
-    /* ── NAV ── */
-    nav {
+    /* ── AUTH SCREEN ── */
+    #auth-screen {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      padding: 18px 32px;
-      border-bottom: 1px solid var(--border);
-      position: sticky;
-      top: 0;
-      background: var(--bg);
-      z-index: 100;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 24px;
+    }
+    .auth-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 40px 36px;
+      width: 100%;
+      max-width: 400px;
+    }
+    .auth-logo { font-size: 24px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 8px; }
+    .auth-logo span { color: var(--blue); }
+    .auth-tagline { color: var(--muted); font-size: 14px; margin-bottom: 32px; }
+    .auth-tabs { display: flex; gap: 0; margin-bottom: 24px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+    .auth-tab {
+      flex: 1; padding: 9px; font-size: 14px; font-weight: 600;
+      background: none; border: none; color: var(--muted); cursor: pointer;
+    }
+    .auth-tab.active { background: var(--surface2); color: var(--text); }
+    .auth-field { margin-bottom: 14px; }
+    .auth-field label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+    .auth-field input {
+      width: 100%; background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--text); font-size: 15px;
+      padding: 11px 14px; outline: none; transition: border-color 0.15s;
+    }
+    .auth-field input:focus { border-color: var(--blue); }
+    .auth-submit {
+      width: 100%; background: var(--blue); color: #fff; border: none;
+      border-radius: 8px; padding: 12px; font-size: 15px; font-weight: 600;
+      cursor: pointer; margin-top: 4px; transition: opacity 0.15s;
+    }
+    .auth-submit:hover { opacity: 0.88; }
+    .auth-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+    .auth-divider { text-align: center; color: var(--muted); font-size: 13px; margin: 16px 0; position: relative; }
+    .auth-divider::before, .auth-divider::after {
+      content: ''; position: absolute; top: 50%; width: 42%; height: 1px; background: var(--border);
+    }
+    .auth-divider::before { left: 0; } .auth-divider::after { right: 0; }
+    .auth-google {
+      width: 100%; background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 8px; padding: 11px; font-size: 14px; font-weight: 600;
+      color: var(--text); cursor: pointer; display: flex; align-items: center;
+      justify-content: center; gap: 10px; transition: background 0.1s;
+    }
+    .auth-google:hover { background: #2a2a2a; }
+    .auth-google svg { width: 18px; height: 18px; flex-shrink: 0; }
+    .auth-msg { font-size: 13px; margin-top: 14px; text-align: center; min-height: 18px; }
+    .auth-msg.error { color: #ff8080; }
+    .auth-msg.success { color: var(--green); }
+
+    /* ── APP ── */
+    #app { display: none; }
+
+    /* ── NAV ── */
+    nav {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px 32px; border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; background: var(--bg); z-index: 100;
     }
     .logo { font-size: 20px; font-weight: 700; letter-spacing: -0.5px; }
     .logo span { color: var(--blue); }
-    .nav-right { display: flex; align-items: center; gap: 12px; }
+    .nav-right { display: flex; align-items: center; gap: 10px; }
     .nav-tab {
-      background: none;
-      border: 1px solid var(--border);
-      color: var(--muted);
-      padding: 7px 16px;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 14px;
-      transition: all 0.15s;
+      background: none; border: 1px solid var(--border); color: var(--muted);
+      padding: 7px 16px; border-radius: 8px; cursor: pointer; font-size: 14px; transition: all 0.15s;
     }
-    .nav-tab.active, .nav-tab:hover {
-      border-color: var(--blue);
-      color: var(--text);
-      background: #1a2332;
-    }
+    .nav-tab.active, .nav-tab:hover { border-color: var(--blue); color: var(--text); background: #1a2332; }
     #library-count {
-      background: var(--blue);
-      color: #fff;
-      font-size: 11px;
-      font-weight: 700;
-      padding: 2px 7px;
-      border-radius: 99px;
-      margin-left: 4px;
+      background: var(--blue); color: #fff; font-size: 11px; font-weight: 700;
+      padding: 2px 7px; border-radius: 99px; margin-left: 4px;
     }
+    .nav-user { font-size: 13px; color: var(--muted); max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .nav-logout {
+      background: none; border: 1px solid var(--border); color: var(--muted);
+      padding: 6px 12px; border-radius: 8px; cursor: pointer; font-size: 13px; transition: all 0.15s;
+    }
+    .nav-logout:hover { border-color: var(--red); color: #ff8080; }
 
     /* ── VIEWS ── */
     .view { display: none; }
     .view.active { display: block; }
 
     /* ── HERO ── */
-    .hero {
-      max-width: 680px;
-      margin: 80px auto 0;
-      padding: 0 24px;
-      text-align: center;
-    }
-    .hero h1 {
-      font-size: clamp(28px, 5vw, 46px);
-      font-weight: 800;
-      letter-spacing: -1px;
-      line-height: 1.15;
-      margin-bottom: 14px;
-    }
+    .hero { max-width: 680px; margin: 80px auto 0; padding: 0 24px; text-align: center; }
+    .hero h1 { font-size: clamp(28px, 5vw, 46px); font-weight: 800; letter-spacing: -1px; line-height: 1.15; margin-bottom: 14px; }
     .hero h1 span { color: var(--blue); }
-    .hero p {
-      color: var(--muted);
-      font-size: 17px;
-      line-height: 1.6;
-      margin-bottom: 40px;
-    }
+    .hero p { color: var(--muted); font-size: 17px; line-height: 1.6; margin-bottom: 40px; }
 
-    /* ── PLATFORM BADGES ── */
-    .platforms {
-      display: flex;
-      justify-content: center;
-      gap: 8px;
-      flex-wrap: wrap;
-      margin-bottom: 32px;
-    }
-    .platform-badge {
-      font-size: 12px;
-      font-weight: 600;
-      padding: 4px 12px;
-      border-radius: 99px;
-      border: 1px solid;
-      opacity: 0.6;
-    }
+    .platforms { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; margin-bottom: 32px; }
+    .platform-badge { font-size: 12px; font-weight: 600; padding: 4px 12px; border-radius: 99px; border: 1px solid; opacity: 0.6; }
     .platform-badge.TikTok    { color: var(--tiktok);    border-color: var(--tiktok); }
     .platform-badge.Instagram { color: var(--instagram); border-color: var(--instagram); }
     .platform-badge.YouTube   { color: var(--youtube);   border-color: var(--youtube); }
     .platform-badge.LinkedIn  { color: var(--linkedin);  border-color: var(--linkedin); }
     .platform-badge.active    { opacity: 1; }
 
-    /* ── INPUT BOX ── */
-    .input-wrap {
-      position: relative;
-      margin-bottom: 12px;
-    }
+    .input-wrap { position: relative; margin-bottom: 12px; }
     #url-input {
-      width: 100%;
-      background: var(--surface);
-      border: 1.5px solid var(--border);
-      border-radius: var(--radius);
-      color: var(--text);
-      font-size: 16px;
-      padding: 16px 140px 16px 18px;
-      outline: none;
-      transition: border-color 0.15s;
+      width: 100%; background: var(--surface); border: 1.5px solid var(--border);
+      border-radius: var(--radius); color: var(--text); font-size: 16px;
+      padding: 16px 140px 16px 18px; outline: none; transition: border-color 0.15s;
     }
     #url-input:focus { border-color: var(--blue); }
     #url-input::placeholder { color: var(--muted); }
     #process-btn {
-      position: absolute;
-      right: 6px;
-      top: 50%;
-      transform: translateY(-50%);
-      background: var(--blue);
-      color: #fff;
-      border: none;
-      border-radius: 8px;
-      padding: 10px 22px;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: opacity 0.15s;
-      white-space: nowrap;
+      position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+      background: var(--blue); color: #fff; border: none; border-radius: 8px;
+      padding: 10px 22px; font-size: 14px; font-weight: 600; cursor: pointer;
+      transition: opacity 0.15s; white-space: nowrap;
     }
     #process-btn:disabled { opacity: 0.5; cursor: not-allowed; }
     #process-btn:not(:disabled):hover { opacity: 0.85; }
-
     .hint { font-size: 13px; color: var(--muted); text-align: center; }
 
-    /* ── STEPS PROGRESS ── */
-    #steps-box {
-      display: none;
-      margin: 28px auto;
-      max-width: 680px;
-      padding: 0 24px;
-    }
-    .steps {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 20px 24px;
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-    }
-    .step {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      font-size: 14px;
-      color: var(--muted);
-      transition: color 0.2s;
-    }
-    .step.active  { color: var(--text); }
-    .step.done    { color: var(--green); }
-    .step.error   { color: var(--red); }
-    .step-icon {
-      width: 22px;
-      height: 22px;
-      border-radius: 50%;
-      border: 1.5px solid currentColor;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 11px;
-      flex-shrink: 0;
-    }
+    /* ── STEPS ── */
+    #steps-box { display: none; margin: 28px auto; max-width: 680px; padding: 0 24px; }
+    .steps { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 24px; display: flex; flex-direction: column; gap: 14px; }
+    .step { display: flex; align-items: center; gap: 12px; font-size: 14px; color: var(--muted); transition: color 0.2s; }
+    .step.active { color: var(--text); }
+    .step.done   { color: var(--green); }
+    .step.error  { color: var(--red); }
+    .step-icon { width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid currentColor; display: flex; align-items: center; justify-content: center; font-size: 11px; flex-shrink: 0; }
     .step.active .step-icon { border-color: var(--blue); color: var(--blue); }
     .step.active .step-icon::after { content: ''; display: block; width: 8px; height: 8px; border-radius: 50%; background: var(--blue); animation: pulse 1s infinite; }
     .step.done .step-icon { background: var(--green); border-color: var(--green); color: #fff; font-size: 12px; }
     .step.done .step-icon::before { content: '✓'; }
     @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
 
-    /* ── ERROR BANNER ── */
-    #error-box {
-      display: none;
-      max-width: 680px;
-      margin: 16px auto;
-      padding: 0 24px;
-    }
-    .error-banner {
-      background: #1f1010;
-      border: 1px solid #5c1c1c;
-      border-radius: var(--radius);
-      padding: 14px 18px;
-      color: #ff8080;
-      font-size: 14px;
-      display: flex;
-      align-items: flex-start;
-      gap: 10px;
-    }
+    /* ── ERROR ── */
+    #error-box { display: none; max-width: 680px; margin: 16px auto; padding: 0 24px; }
+    .error-banner { background: #1f1010; border: 1px solid #5c1c1c; border-radius: var(--radius); padding: 14px 18px; color: #ff8080; font-size: 14px; display: flex; align-items: flex-start; gap: 10px; }
 
-    /* ── RESULT CARD (latest) ── */
-    #result-box {
-      display: none;
-      max-width: 680px;
-      margin: 28px auto;
-      padding: 0 24px;
-    }
-    .result-label {
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
-      margin-bottom: 10px;
-    }
+    /* ── RESULT ── */
+    #result-box { display: none; max-width: 680px; margin: 28px auto; padding: 0 24px; }
+    .result-label { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 10px; }
 
-    /* ── KNOWLEDGE CARD ── */
-    .card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      overflow: hidden;
-      transition: border-color 0.15s;
-    }
+    /* ── CARD ── */
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; transition: border-color 0.15s; }
     .card:hover { border-color: #3a3a3a; }
-    .card-header {
-      display: flex;
-      gap: 14px;
-      padding: 16px;
-      align-items: flex-start;
-    }
-    .card-thumb {
-      width: 80px;
-      height: 80px;
-      border-radius: 8px;
-      object-fit: cover;
-      flex-shrink: 0;
-      background: var(--surface2);
-    }
-    .thumb-placeholder {
-      width: 80px;
-      height: 80px;
-      border-radius: 8px;
-      background: var(--surface2);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 28px;
-      flex-shrink: 0;
-      color: var(--muted);
-    }
+    .card-header { display: flex; gap: 14px; padding: 16px; align-items: flex-start; }
+    .card-thumb { width: 80px; height: 80px; border-radius: 8px; object-fit: cover; flex-shrink: 0; background: var(--surface2); }
+    .thumb-placeholder { width: 80px; height: 80px; border-radius: 8px; background: var(--surface2); display: flex; align-items: center; justify-content: center; font-size: 28px; flex-shrink: 0; color: var(--muted); }
     .card-meta { flex: 1; min-width: 0; }
-    .card-title {
-      font-size: 15px;
-      font-weight: 600;
-      line-height: 1.4;
-      margin-bottom: 8px;
-    }
+    .card-title { font-size: 15px; font-weight: 600; line-height: 1.4; margin-bottom: 8px; }
     .card-badges { display: flex; gap: 6px; flex-wrap: wrap; }
-    .badge {
-      font-size: 11px;
-      font-weight: 600;
-      padding: 3px 9px;
-      border-radius: 99px;
-    }
+    .badge { font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 99px; }
     .badge-platform { background: rgba(255,255,255,0.07); color: var(--muted); }
-    .badge-platform.TikTok    { background: rgba(254,44,85,0.15);   color: var(--tiktok); }
-    .badge-platform.Instagram { background: rgba(225,48,108,0.15);  color: var(--instagram); }
-    .badge-platform.YouTube   { background: rgba(255,0,0,0.15);     color: #ff5555; }
-    .badge-platform.LinkedIn  { background: rgba(0,119,181,0.15);   color: #4db8ff; }
+    .badge-platform.TikTok    { background: rgba(254,44,85,0.15);  color: var(--tiktok); }
+    .badge-platform.Instagram { background: rgba(225,48,108,0.15); color: var(--instagram); }
+    .badge-platform.YouTube   { background: rgba(255,0,0,0.15);    color: #ff5555; }
+    .badge-platform.LinkedIn  { background: rgba(0,119,181,0.15);  color: #4db8ff; }
     .badge-category { color: #fff; }
-
-    .card-points {
-      padding: 0 16px 16px;
-      border-top: 1px solid var(--border);
-    }
-    .card-summary {
-      font-size: 13px;
-      color: var(--muted);
-      padding: 10px 0 8px;
-      line-height: 1.6;
-      border-bottom: 1px solid var(--border);
-      margin-bottom: 10px;
-    }
-    .card-points ul {
-      list-style: none;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-    .card-points li {
-      font-size: 14px;
-      line-height: 1.65;
-      padding-left: 22px;
-      position: relative;
-      color: #d4d4d4;
-    }
-    .card-points li::before {
-      content: '';
-      position: absolute;
-      left: 0;
-      top: 8px;
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: var(--blue);
-    }
-    .card-footer {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 10px 16px;
-      border-top: 1px solid var(--border);
-    }
+    .card-points { padding: 0 16px 16px; border-top: 1px solid var(--border); }
+    .card-summary { font-size: 13px; color: var(--muted); padding: 10px 0 8px; line-height: 1.6; border-bottom: 1px solid var(--border); margin-bottom: 10px; }
+    .card-points ul { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+    .card-points li { font-size: 14px; line-height: 1.65; padding-left: 22px; position: relative; color: #d4d4d4; }
+    .card-points li::before { content: ''; position: absolute; left: 0; top: 8px; width: 6px; height: 6px; border-radius: 50%; background: var(--blue); }
+    .card-footer { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; border-top: 1px solid var(--border); }
     .card-uploader { font-size: 12px; color: var(--muted); }
     .card-actions { display: flex; gap: 8px; }
-    .card-btn {
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      color: var(--text);
-      font-size: 12px;
-      padding: 5px 12px;
-      border-radius: 6px;
-      cursor: pointer;
-      text-decoration: none;
-      transition: background 0.1s;
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-    }
+    .card-btn { background: var(--surface2); border: 1px solid var(--border); color: var(--text); font-size: 12px; padding: 5px 12px; border-radius: 6px; cursor: pointer; text-decoration: none; transition: background 0.1s; display: inline-flex; align-items: center; gap: 4px; }
     .card-btn:hover { background: #2a2a2a; }
-    .card-btn-watch { background: #1a2332; border-color: var(--blue); color: var(--blue); font-weight: 600; }
+    .card-btn-watch   { background: #1a2332; border-color: var(--blue); color: var(--blue); font-weight: 600; }
     .card-btn-watch:hover { background: #1e2d44; }
     .card-btn-creator { background: #1a1a2e; border-color: #6366f1; color: #818cf8; }
     .card-btn-creator:hover { background: #1e1e3a; }
-    .card-btn.danger { color: #ff8080; }
+    .card-btn.danger  { color: #ff8080; }
     .card-btn.danger:hover { background: #2a1010; border-color: #5c1c1c; }
 
-    /* ── LIBRARY VIEW ── */
+    /* ── LIBRARY ── */
     #library-view { max-width: 1100px; margin: 0 auto; padding: 32px 24px; }
-    .library-header {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      margin-bottom: 24px;
-      flex-wrap: wrap;
-    }
+    .library-header { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
     .library-header h2 { font-size: 22px; font-weight: 700; flex: 1; }
-    #search-input {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      color: var(--text);
-      font-size: 14px;
-      padding: 8px 14px;
-      outline: none;
-      width: 220px;
-      transition: border-color 0.15s;
-    }
+    #search-input { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 14px; padding: 8px 14px; outline: none; width: 220px; transition: border-color 0.15s; }
     #search-input:focus { border-color: var(--blue); }
     #search-input::placeholder { color: var(--muted); }
-
     .filter-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 20px; }
-    .filter-chip {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      color: var(--muted);
-      font-size: 12px;
-      padding: 5px 12px;
-      border-radius: 99px;
-      cursor: pointer;
-      transition: all 0.1s;
-    }
-    .filter-chip.active {
-      background: #1a2332;
-      border-color: var(--blue);
-      color: var(--text);
-    }
-
-    .cards-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-      gap: 16px;
-    }
-
-    .empty-state {
-      text-align: center;
-      padding: 80px 24px;
-      color: var(--muted);
-    }
+    .filter-chip { background: var(--surface); border: 1px solid var(--border); color: var(--muted); font-size: 12px; padding: 5px 12px; border-radius: 99px; cursor: pointer; transition: all 0.1s; }
+    .filter-chip.active { background: #1a2332; border-color: var(--blue); color: var(--text); }
+    .cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+    .empty-state { text-align: center; padding: 80px 24px; color: var(--muted); }
     .empty-state h3 { font-size: 18px; margin-bottom: 8px; color: var(--text); }
     .empty-state p { font-size: 14px; }
 
-    /* ── LOADING SPINNER ── */
-    .spinner {
-      width: 16px; height: 16px;
-      border: 2px solid rgba(255,255,255,0.2);
-      border-top-color: #fff;
-      border-radius: 50%;
-      animation: spin 0.7s linear infinite;
-      display: inline-block;
-    }
+    .spinner { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.2); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; display: inline-block; }
     @keyframes spin { to { transform: rotate(360deg); } }
 
     @media (max-width: 600px) {
       nav { padding: 14px 16px; }
+      .nav-user { display: none; }
       .hero { margin-top: 40px; }
       #url-input { padding-right: 110px; font-size: 15px; }
       .cards-grid { grid-template-columns: 1fr; }
+      .auth-box { padding: 32px 24px; }
     }
   </style>
 </head>
 <body>
 
-<!-- NAV -->
-<nav>
-  <div class="logo">Reel<span>Wise</span></div>
-  <div class="nav-right">
-    <button class="nav-tab active" onclick="showView('home')">Save Video</button>
-    <button class="nav-tab" onclick="showView('library'); loadLibrary()">
-      Library <span id="library-count">0</span>
+<!-- ══ AUTH SCREEN ══ -->
+<div id="auth-screen">
+  <div class="auth-box">
+    <div class="auth-logo">Reel<span>Wise</span></div>
+    <p class="auth-tagline">Turn short videos into structured knowledge</p>
+
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="tab-login" onclick="switchTab('login')">Sign in</button>
+      <button class="auth-tab" id="tab-signup" onclick="switchTab('signup')">Sign up</button>
+    </div>
+
+    <div class="auth-field">
+      <label>Email</label>
+      <input id="auth-email" type="email" placeholder="you@example.com" autocomplete="email" />
+    </div>
+    <div class="auth-field">
+      <label>Password</label>
+      <input id="auth-password" type="password" placeholder="••••••••" autocomplete="current-password" />
+    </div>
+    <button class="auth-submit" id="auth-submit" onclick="authSubmit()">Sign in</button>
+
+    <div class="auth-divider">or</div>
+
+    <button class="auth-google" onclick="signInWithGoogle()">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+      </svg>
+      Continue with Google
     </button>
-  </div>
-</nav>
 
-<!-- ══ HOME VIEW ══ -->
-<div class="view active" id="home-view">
-  <div class="hero">
-    <h1>Turn short videos into<br/><span>structured knowledge</span></h1>
-    <p>Paste any TikTok, Instagram Reel, YouTube Short, or LinkedIn video link.<br/>
-       We transcribe it, extract the insights, and save it to your library.</p>
-
-    <div class="platforms">
-      <span class="platform-badge TikTok"   id="pb-TikTok">TikTok</span>
-      <span class="platform-badge Instagram" id="pb-Instagram">Instagram</span>
-      <span class="platform-badge YouTube"   id="pb-YouTube">YouTube Shorts</span>
-      <span class="platform-badge LinkedIn"  id="pb-LinkedIn">LinkedIn</span>
-    </div>
-
-    <div class="input-wrap">
-      <input
-        id="url-input"
-        type="url"
-        placeholder="Paste video URL here..."
-        autocomplete="off"
-        spellcheck="false"
-      />
-      <button id="process-btn" onclick="processVideo()">Save it</button>
-    </div>
-    <p class="hint">Videos up to 2 minutes. No account needed.</p>
-  </div>
-
-  <!-- Steps progress -->
-  <div id="steps-box">
-    <div class="steps">
-      <div class="step" id="step-1">
-        <div class="step-icon"></div>
-        <span>Downloading audio from video...</span>
-      </div>
-      <div class="step" id="step-2">
-        <div class="step-icon">2</div>
-        <span>Transcribing with Whisper AI...</span>
-      </div>
-      <div class="step" id="step-3">
-        <div class="step-icon">3</div>
-        <span>Extracting key insights with LLaMA...</span>
-      </div>
-      <div class="step" id="step-4">
-        <div class="step-icon">4</div>
-        <span>Saving to your library...</span>
-      </div>
-    </div>
-  </div>
-
-  <!-- Error -->
-  <div id="error-box">
-    <div class="error-banner">
-      <span>&#9888;</span>
-      <span id="error-msg">Something went wrong.</span>
-    </div>
-  </div>
-
-  <!-- Result card -->
-  <div id="result-box">
-    <div class="result-label">Saved to your library</div>
-    <div id="result-card"></div>
+    <div class="auth-msg" id="auth-msg"></div>
   </div>
 </div>
 
-<!-- ══ LIBRARY VIEW ══ -->
-<div class="view" id="library-view">
-  <div class="library-header">
-    <h2>Your Knowledge Library</h2>
-    <input id="search-input" type="text" placeholder="Search cards..." oninput="filterLibrary()" />
-  </div>
-  <div class="filter-chips" id="category-filters">
-    <span class="filter-chip active" data-cat="" onclick="setCategoryFilter(this, '')">All</span>
-    <span class="filter-chip" data-cat="Career"        onclick="setCategoryFilter(this,'Career')">Career</span>
-    <span class="filter-chip" data-cat="Finance"       onclick="setCategoryFilter(this,'Finance')">Finance</span>
-    <span class="filter-chip" data-cat="Health"        onclick="setCategoryFilter(this,'Health')">Health</span>
-    <span class="filter-chip" data-cat="Fitness"       onclick="setCategoryFilter(this,'Fitness')">Fitness</span>
-    <span class="filter-chip" data-cat="Education"     onclick="setCategoryFilter(this,'Education')">Education</span>
-    <span class="filter-chip" data-cat="Technology"    onclick="setCategoryFilter(this,'Technology')">Technology</span>
-    <span class="filter-chip" data-cat="Business"      onclick="setCategoryFilter(this,'Business')">Business</span>
-    <span class="filter-chip" data-cat="Lifestyle"     onclick="setCategoryFilter(this,'Lifestyle')">Lifestyle</span>
-    <span class="filter-chip" data-cat="Entertainment" onclick="setCategoryFilter(this,'Entertainment')">Entertainment</span>
-    <span class="filter-chip" data-cat="Other"         onclick="setCategoryFilter(this,'Other')">Other</span>
-  </div>
-  <div class="cards-grid" id="cards-grid">
-    <div class="empty-state">
-      <h3>No cards yet</h3>
-      <p>Save your first video to get started.</p>
+<!-- ══ APP ══ -->
+<div id="app">
+
+  <!-- NAV -->
+  <nav>
+    <div class="logo">Reel<span>Wise</span></div>
+    <div class="nav-right">
+      <button class="nav-tab active" onclick="showView('home')">Save Video</button>
+      <button class="nav-tab" onclick="showView('library'); loadLibrary()">
+        Library <span id="library-count">0</span>
+      </button>
+      <span class="nav-user" id="nav-user-email"></span>
+      <button class="nav-logout" onclick="signOut()">Logout</button>
+    </div>
+  </nav>
+
+  <!-- ══ HOME VIEW ══ -->
+  <div class="view active" id="home-view">
+    <div class="hero">
+      <h1>Turn short videos into<br/><span>structured knowledge</span></h1>
+      <p>Paste any TikTok, Instagram Reel, YouTube Short, or LinkedIn video link.<br/>
+         We transcribe it, extract the insights, and save it to your library.</p>
+
+      <div class="platforms">
+        <span class="platform-badge TikTok"   id="pb-TikTok">TikTok</span>
+        <span class="platform-badge Instagram" id="pb-Instagram">Instagram</span>
+        <span class="platform-badge YouTube"   id="pb-YouTube">YouTube Shorts</span>
+        <span class="platform-badge LinkedIn"  id="pb-LinkedIn">LinkedIn</span>
+      </div>
+
+      <div class="input-wrap">
+        <input id="url-input" type="url" placeholder="Paste video URL here..." autocomplete="off" spellcheck="false" />
+        <button id="process-btn" onclick="processVideo()">Save it</button>
+      </div>
+      <p class="hint">Videos up to 2 minutes · Your personal knowledge library</p>
+    </div>
+
+    <div id="steps-box">
+      <div class="steps">
+        <div class="step" id="step-1"><div class="step-icon"></div><span>Downloading audio from video...</span></div>
+        <div class="step" id="step-2"><div class="step-icon">2</div><span>Transcribing with Whisper AI...</span></div>
+        <div class="step" id="step-3"><div class="step-icon">3</div><span>Extracting key insights with LLaMA...</span></div>
+        <div class="step" id="step-4"><div class="step-icon">4</div><span>Saving to your library...</span></div>
+      </div>
+    </div>
+
+    <div id="error-box">
+      <div class="error-banner"><span>&#9888;</span><span id="error-msg">Something went wrong.</span></div>
+    </div>
+
+    <div id="result-box">
+      <div class="result-label">Saved to your library</div>
+      <div id="result-card"></div>
     </div>
   </div>
-</div>
+
+  <!-- ══ LIBRARY VIEW ══ -->
+  <div class="view" id="library-view">
+    <div class="library-header">
+      <h2>Your Knowledge Library</h2>
+      <input id="search-input" type="text" placeholder="Search cards..." oninput="filterLibrary()" />
+    </div>
+    <div class="filter-chips" id="category-filters">
+      <span class="filter-chip active" onclick="setCategoryFilter(this,'')">All</span>
+      <span class="filter-chip" onclick="setCategoryFilter(this,'Career')">Career</span>
+      <span class="filter-chip" onclick="setCategoryFilter(this,'Finance')">Finance</span>
+      <span class="filter-chip" onclick="setCategoryFilter(this,'Health')">Health</span>
+      <span class="filter-chip" onclick="setCategoryFilter(this,'Fitness')">Fitness</span>
+      <span class="filter-chip" onclick="setCategoryFilter(this,'Education')">Education</span>
+      <span class="filter-chip" onclick="setCategoryFilter(this,'Technology')">Technology</span>
+      <span class="filter-chip" onclick="setCategoryFilter(this,'Business')">Business</span>
+      <span class="filter-chip" onclick="setCategoryFilter(this,'Lifestyle')">Lifestyle</span>
+      <span class="filter-chip" onclick="setCategoryFilter(this,'Entertainment')">Entertainment</span>
+      <span class="filter-chip" onclick="setCategoryFilter(this,'Other')">Other</span>
+    </div>
+    <div class="cards-grid" id="cards-grid">
+      <div class="empty-state"><h3>No cards yet</h3><p>Save your first video to get started.</p></div>
+    </div>
+  </div>
+
+</div><!-- /#app -->
 
 <script>
-  const API = 'http://localhost:3000/api'
+  const SUPABASE_URL  = 'https://xanuhndujcafaivzfwia.supabase.co'
+  const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhhbnVobmR1amNhZmFpdnpmd2lhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ1NDQzODksImV4cCI6MjA5MDEyMDM4OX0.PsaaB_zNqKVafxzr7GYpUffn88OBDCPBiuzpMGZTxtA'
+  const API = '/api'
 
-  // ── Platform detection ──────────────────────────────────────────
-  const PLATFORM_DOMAINS = {
-    'tiktok.com':    'TikTok',
-    'instagram.com': 'Instagram',
-    'youtube.com':   'YouTube',
-    'youtu.be':      'YouTube',
-    'linkedin.com':  'LinkedIn',
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON)
+  let currentSession = null
+
+  // ── Auth state ───────────────────────────────────────────────────
+  sb.auth.onAuthStateChange((event, session) => {
+    currentSession = session
+    if (session) {
+      document.getElementById('auth-screen').style.display = 'none'
+      document.getElementById('app').style.display = 'block'
+      document.getElementById('nav-user-email').textContent = session.user.email
+      refreshLibraryCount()
+    } else {
+      document.getElementById('auth-screen').style.display = 'flex'
+      document.getElementById('app').style.display = 'none'
+    }
+  })
+
+  function getToken() {
+    return currentSession?.access_token || ''
   }
 
+  // ── Auth UI ──────────────────────────────────────────────────────
+  let authMode = 'login'
+  function switchTab(mode) {
+    authMode = mode
+    document.getElementById('tab-login').className  = 'auth-tab' + (mode === 'login'  ? ' active' : '')
+    document.getElementById('tab-signup').className = 'auth-tab' + (mode === 'signup' ? ' active' : '')
+    document.getElementById('auth-submit').textContent = mode === 'login' ? 'Sign in' : 'Create account'
+    document.getElementById('auth-msg').textContent = ''
+    document.getElementById('auth-password').autocomplete = mode === 'login' ? 'current-password' : 'new-password'
+  }
+
+  function setAuthMsg(msg, type = 'error') {
+    const el = document.getElementById('auth-msg')
+    el.textContent = msg
+    el.className = 'auth-msg ' + type
+  }
+
+  async function authSubmit() {
+    const email    = document.getElementById('auth-email').value.trim()
+    const password = document.getElementById('auth-password').value
+    const btn      = document.getElementById('auth-submit')
+    if (!email || !password) return setAuthMsg('Please enter email and password.')
+
+    btn.disabled = true
+    btn.textContent = '...'
+    setAuthMsg('')
+
+    let error
+    if (authMode === 'login') {
+      ({ error } = await sb.auth.signInWithPassword({ email, password }))
+    } else {
+      ({ error } = await sb.auth.signUp({ email, password }))
+      if (!error) { setAuthMsg('Check your email to confirm your account.', 'success'); btn.disabled = false; btn.textContent = 'Create account'; return }
+    }
+
+    btn.disabled = false
+    btn.textContent = authMode === 'login' ? 'Sign in' : 'Create account'
+    if (error) setAuthMsg(error.message)
+  }
+
+  document.getElementById('auth-password').addEventListener('keydown', e => { if (e.key === 'Enter') authSubmit() })
+  document.getElementById('auth-email').addEventListener('keydown',    e => { if (e.key === 'Enter') authSubmit() })
+
+  async function signInWithGoogle() {
+    const { error } = await sb.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.origin }
+    })
+    if (error) setAuthMsg(error.message)
+  }
+
+  async function signOut() {
+    await sb.auth.signOut()
+  }
+
+  // ── Platform detection ───────────────────────────────────────────
+  const PLATFORM_DOMAINS = { 'tiktok.com':'TikTok','instagram.com':'Instagram','youtube.com':'YouTube','youtu.be':'YouTube','linkedin.com':'LinkedIn' }
   document.getElementById('url-input').addEventListener('input', function () {
     const val = this.value.trim()
     document.querySelectorAll('.platform-badge').forEach(b => b.classList.remove('active'))
     for (const [domain, name] of Object.entries(PLATFORM_DOMAINS)) {
-      if (val.includes(domain)) {
-        const el = document.getElementById('pb-' + name)
-        if (el) el.classList.add('active')
-        break
-      }
+      if (val.includes(domain)) { const el = document.getElementById('pb-'+name); if (el) el.classList.add('active'); break }
     }
   })
+  document.getElementById('url-input').addEventListener('keydown', e => { if (e.key === 'Enter') processVideo() })
 
-  document.getElementById('url-input').addEventListener('keydown', function (e) {
-    if (e.key === 'Enter') processVideo()
-  })
-
-  // ── View switching ──────────────────────────────────────────────
+  // ── View switching ───────────────────────────────────────────────
   function showView(name) {
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'))
     document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'))
     document.getElementById(name + '-view').classList.add('active')
-    const tabs = document.querySelectorAll('.nav-tab')
-    tabs[name === 'home' ? 0 : 1].classList.add('active')
+    document.querySelectorAll('.nav-tab')[name === 'home' ? 0 : 1].classList.add('active')
   }
 
-  // ── Category colour ─────────────────────────────────────────────
-  const CAT_COLORS = {
-    Career: '#3b82f6', Finance: '#22c55e', Health: '#ef4444',
-    Fitness: '#f59e0b', Education: '#8b5cf6', Technology: '#06b6d4',
-    Business: '#6366f1', Lifestyle: '#ec4899', Food: '#f97316',
-    Travel: '#14b8a6', Entertainment: '#a855f7', Other: '#6b7280',
-  }
+  // ── Card helpers ─────────────────────────────────────────────────
+  const CAT_COLORS = { Career:'#3b82f6',Finance:'#22c55e',Health:'#ef4444',Fitness:'#f59e0b',Education:'#8b5cf6',Technology:'#06b6d4',Business:'#6366f1',Lifestyle:'#ec4899',Food:'#f97316',Travel:'#14b8a6',Entertainment:'#a855f7',Other:'#6b7280' }
   function catColor(cat) { return CAT_COLORS[cat] || '#6b7280' }
+  function platformIcon(p) { return ({TikTok:'T',Instagram:'IG',YouTube:'YT',LinkedIn:'in'})[p] || '?' }
+  function esc(s) { return s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : '' }
+  function formatAgo(date) {
+    const m = Math.floor((Date.now() - date.getTime()) / 60000)
+    if (m < 1) return 'just now'; if (m < 60) return `${m}m ago`
+    const h = Math.floor(m / 60); if (h < 24) return `${h}h ago`
+    return `${Math.floor(h/24)}d ago`
+  }
 
-  // ── Build card HTML ─────────────────────────────────────────────
   function buildCard(card, showDelete = false) {
-    const color = catColor(card.category)
-    const points = Array.isArray(card.key_points)
-      ? card.key_points
-      : (card.key_points || [])
-
-    const thumbHtml = card.thumbnail_url
+    const color  = catColor(card.category)
+    const points = Array.isArray(card.key_points) ? card.key_points : []
+    const thumb  = card.thumbnail_url
       ? `<img class="card-thumb" src="${card.thumbnail_url}" alt="" onerror="this.style.display='none'">`
       : `<div class="thumb-placeholder">${platformIcon(card.platform)}</div>`
-
-    const uploadedBy = card.uploader ? `by ${card.uploader}` : ''
     const timeAgo = card.created_at ? formatAgo(new Date(card.created_at)) : ''
-
     return `
       <div class="card" id="card-${card.id}">
         <div class="card-header">
-          ${thumbHtml}
+          ${thumb}
           <div class="card-meta">
             <div class="card-title">${esc(card.title)}</div>
             <div class="card-badges">
-              <span class="badge badge-platform ${card.platform}">${card.platform || 'Web'}</span>
+              <span class="badge badge-platform ${card.platform}">${card.platform||'Web'}</span>
               <span class="badge badge-category" style="background:${color}22;color:${color}">${card.category}</span>
             </div>
           </div>
         </div>
         <div class="card-points">
           ${card.summary ? `<div class="card-summary">${esc(card.summary)}</div>` : ''}
-          <ul>${points.map(p => `<li>${esc(p)}</li>`).join('')}</ul>
+          <ul>${points.map(p=>`<li>${esc(p)}</li>`).join('')}</ul>
         </div>
         <div class="card-footer">
-          <span class="card-uploader">${esc(uploadedBy)} ${timeAgo ? '· ' + timeAgo : ''}</span>
+          <span class="card-uploader">${esc(card.uploader?'by '+card.uploader:'')}${timeAgo?' · '+timeAgo:''}</span>
           <div class="card-actions">
             <a class="card-btn card-btn-watch" href="${esc(card.url)}" target="_blank" rel="noopener">Watch</a>
-            ${card.uploader_url ? `<a class="card-btn card-btn-creator" href="${esc(card.uploader_url)}" target="_blank" rel="noopener">${esc(card.uploader || 'Creator')}</a>` : ''}
-            <button class="card-btn" onclick="copyPoints('${card.id}', event)" data-points='${JSON.stringify(points)}'>Copy</button>
-            ${showDelete ? `<button class="card-btn danger" onclick="removeCard('${card.id}')">Delete</button>` : ''}
+            ${card.uploader_url?`<a class="card-btn card-btn-creator" href="${esc(card.uploader_url)}" target="_blank" rel="noopener">${esc(card.uploader||'Creator')}</a>`:''}
+            <button class="card-btn" onclick="copyPoints('${card.id}',event)" data-points='${JSON.stringify(points)}'>Copy</button>
+            ${showDelete?`<button class="card-btn danger" onclick="removeCard('${card.id}')">Delete</button>`:''}
           </div>
         </div>
       </div>`
   }
 
-  function platformIcon(p) {
-    const icons = { TikTok: 'T', Instagram: 'IG', YouTube: 'YT', LinkedIn: 'in' }
-    return icons[p] || '?'
-  }
-  function esc(s) {
-    if (!s) return ''
-    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
-  }
-  function formatAgo(date) {
-    const diff = Date.now() - date.getTime()
-    const m = Math.floor(diff / 60000)
-    if (m < 1)   return 'just now'
-    if (m < 60)  return `${m}m ago`
-    const h = Math.floor(m / 60)
-    if (h < 24)  return `${h}h ago`
-    return `${Math.floor(h / 24)}d ago`
-  }
+  // ── Steps ────────────────────────────────────────────────────────
+  function resetSteps() { for (let i=1;i<=4;i++){const el=document.getElementById('step-'+i);el.className='step';if(i>1)el.querySelector('.step-icon').textContent=i} }
+  function setStep(n, state) { for(let i=1;i<=4;i++){const el=document.getElementById('step-'+i);if(i<n)el.className='step done';else if(i===n)el.className='step '+state;else el.className='step'} }
 
-  // ── Step management ─────────────────────────────────────────────
-  function resetSteps() {
-    for (let i = 1; i <= 4; i++) {
-      const el = document.getElementById('step-' + i)
-      el.className = 'step'
-      if (i > 1) el.querySelector('.step-icon').textContent = i
-    }
-  }
-  function setStep(n, state) {
-    for (let i = 1; i <= 4; i++) {
-      const el = document.getElementById('step-' + i)
-      if (i < n)      el.className = 'step done'
-      else if (i === n) el.className = 'step ' + state
-      else             el.className = 'step'
-    }
-  }
-
-  // ── Process video ───────────────────────────────────────────────
+  // ── Process video ────────────────────────────────────────────────
   async function processVideo() {
     const url = document.getElementById('url-input').value.trim()
     if (!url) return
-
     const btn = document.getElementById('process-btn')
     btn.disabled = true
     btn.innerHTML = '<span class="spinner"></span>'
-
     document.getElementById('steps-box').style.display = 'block'
     document.getElementById('error-box').style.display = 'none'
     document.getElementById('result-box').style.display = 'none'
     resetSteps()
-
-    // Animate step 1 active immediately
     setStep(1, 'active')
-
-    // Step timing simulation (real steps happen server-side)
-    // We'll advance steps on a timer as the request progresses
-    const stepTimers = [
-      setTimeout(() => setStep(2, 'active'), 4000),
-      setTimeout(() => setStep(3, 'active'), 9000),
-      setTimeout(() => setStep(4, 'active'), 13000),
+    const timers = [
+      setTimeout(() => setStep(2,'active'), 4000),
+      setTimeout(() => setStep(3,'active'), 9000),
+      setTimeout(() => setStep(4,'active'), 13000),
     ]
-
     try {
       const res = await fetch(`${API}/process`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
         body: JSON.stringify({ url }),
       })
-      stepTimers.forEach(clearTimeout)
-
+      timers.forEach(clearTimeout)
       const data = await res.json()
-
       if (!data.success) throw new Error(data.error)
-
-      // Mark all done
-      for (let i = 1; i <= 4; i++) document.getElementById('step-' + i).className = 'step done'
-
-      // Show result card
+      for (let i=1;i<=4;i++) document.getElementById('step-'+i).className='step done'
       document.getElementById('result-card').innerHTML = buildCard(data.card, false)
       document.getElementById('result-box').style.display = 'block'
-
-      // Update library count
       refreshLibraryCount()
-
-      // Clear input
       document.getElementById('url-input').value = ''
       document.querySelectorAll('.platform-badge').forEach(b => b.classList.remove('active'))
-
     } catch (err) {
-      stepTimers.forEach(clearTimeout)
+      timers.forEach(clearTimeout)
       document.getElementById('error-msg').textContent = err.message
       document.getElementById('error-box').style.display = 'block'
       document.getElementById('steps-box').style.display = 'none'
@@ -739,83 +551,70 @@
     }
   }
 
-  // ── Library ─────────────────────────────────────────────────────
-  let allCards = []
-  let activeCategory = ''
+  // ── Library ──────────────────────────────────────────────────────
+  let allCards = [], activeCategory = ''
 
   async function loadLibrary() {
     const grid = document.getElementById('cards-grid')
     grid.innerHTML = '<div class="empty-state"><p>Loading...</p></div>'
     try {
-      const res = await fetch(`${API}/cards`)
+      const res = await fetch(`${API}/cards`, { headers: { 'Authorization': `Bearer ${getToken()}` } })
       const data = await res.json()
       allCards = data.cards || []
       updateLibraryCount(allCards.length)
       renderLibrary()
     } catch {
-      grid.innerHTML = '<div class="empty-state"><h3>Could not load library</h3><p>Make sure the backend is running.</p></div>'
+      grid.innerHTML = '<div class="empty-state"><h3>Could not load library</h3></div>'
     }
   }
 
   function renderLibrary() {
     const search = document.getElementById('search-input').value.toLowerCase()
     let filtered = allCards
-
     if (activeCategory) filtered = filtered.filter(c => c.category === activeCategory)
     if (search) filtered = filtered.filter(c =>
       c.title.toLowerCase().includes(search) ||
-      (c.summary || '').toLowerCase().includes(search) ||
-      (c.key_points || []).some(p => p.toLowerCase().includes(search))
+      (c.summary||'').toLowerCase().includes(search) ||
+      (c.key_points||[]).some(p => p.toLowerCase().includes(search))
     )
-
     const grid = document.getElementById('cards-grid')
-    if (filtered.length === 0) {
-      grid.innerHTML = `<div class="empty-state"><h3>No cards found</h3><p>${search || activeCategory ? 'Try a different filter.' : 'Save your first video to get started.'}</p></div>`
+    if (!filtered.length) {
+      grid.innerHTML = `<div class="empty-state"><h3>No cards found</h3><p>${search||activeCategory?'Try a different filter.':'Save your first video to get started.'}</p></div>`
       return
     }
     grid.innerHTML = filtered.map(c => buildCard(c, true)).join('')
   }
 
   function filterLibrary() { renderLibrary() }
-
   function setCategoryFilter(el, cat) {
     document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'))
-    el.classList.add('active')
-    activeCategory = cat
-    renderLibrary()
+    el.classList.add('active'); activeCategory = cat; renderLibrary()
   }
 
   async function removeCard(id) {
     if (!confirm('Delete this card?')) return
-    await fetch(`${API}/cards/${id}`, { method: 'DELETE' })
+    await fetch(`${API}/cards/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${getToken()}` } })
     allCards = allCards.filter(c => c.id !== id)
     updateLibraryCount(allCards.length)
     renderLibrary()
   }
 
   function copyPoints(id, e) {
-    const btn = e.target
     const card = allCards.find(c => c.id === id)
     if (!card) return
-    const text = (card.key_points || []).map((p, i) => `${i+1}. ${p}`).join('\n')
-    navigator.clipboard.writeText(card.title + '\n\n' + text + '\n\nSource: ' + card.url)
-      .then(() => { btn.textContent = 'Copied!'; setTimeout(() => btn.textContent = 'Copy', 1500) })
+    const text = (card.key_points||[]).map((p,i)=>`${i+1}. ${p}`).join('\n')
+    navigator.clipboard.writeText(card.title+'\n\n'+text+'\n\nSource: '+card.url)
+      .then(()=>{ e.target.textContent='Copied!'; setTimeout(()=>e.target.textContent='Copy',1500) })
   }
 
-  // ── Library count ────────────────────────────────────────────────
   async function refreshLibraryCount() {
     try {
-      const res = await fetch(`${API}/cards`)
+      const res = await fetch(`${API}/cards`, { headers: { 'Authorization': `Bearer ${getToken()}` } })
       const data = await res.json()
-      updateLibraryCount((data.cards || []).length)
+      updateLibraryCount((data.cards||[]).length)
     } catch {}
   }
-  function updateLibraryCount(n) {
-    document.getElementById('library-count').textContent = n
-  }
-
-  // ── Init ─────────────────────────────────────────────────────────
-  refreshLibraryCount()
+  function updateLibraryCount(n) { document.getElementById('library-count').textContent = n }
 </script>
 </body>
 </html>

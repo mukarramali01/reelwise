@@ -5,19 +5,34 @@ const supabase = createClient(
   process.env.SUPABASE_ANON_KEY
 )
 
-export async function saveCard(data) {
-  const { data: card, error } = await supabase
+export function clientForUser(token) {
+  return createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
+    global: { headers: { Authorization: `Bearer ${token}` } },
+  })
+}
+
+export async function getUserFromToken(token) {
+  const { data, error } = await supabase.auth.getUser(token)
+  if (error || !data.user) throw new Error('Unauthorized')
+  return data.user
+}
+
+export async function saveCard(data, token) {
+  const user = await getUserFromToken(token)
+  const db = clientForUser(token)
+  const { data: card, error } = await db
     .from('cards')
-    .insert(data)
+    .insert({ ...data, user_id: user.id })
     .select()
     .single()
-
   if (error) throw new Error(`DB save failed: ${error.message}`)
   return card
 }
 
-export async function getCards({ search, category, platform } = {}) {
-  let query = supabase
+export async function getCards({ search, category, platform } = {}, token) {
+  await getUserFromToken(token)
+  const db = clientForUser(token)
+  let query = db
     .from('cards')
     .select('*')
     .order('created_at', { ascending: false })
@@ -31,7 +46,9 @@ export async function getCards({ search, category, platform } = {}) {
   return data
 }
 
-export async function deleteCard(id) {
-  const { error } = await supabase.from('cards').delete().eq('id', id)
+export async function deleteCard(id, token) {
+  await getUserFromToken(token)
+  const db = clientForUser(token)
+  const { error } = await db.from('cards').delete().eq('id', id)
   if (error) throw new Error(`DB delete failed: ${error.message}`)
 }

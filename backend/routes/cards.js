@@ -2,21 +2,27 @@ import { getCards, deleteCard } from '../services/db.js'
 
 export default async function cardsRoute(app) {
   app.get('/cards', async (request, reply) => {
+    const token = (request.headers.authorization || '').replace('Bearer ', '').trim()
+    if (!token) return reply.status(401).send({ success: false, error: 'Not logged in.' })
     try {
       const { search, category, platform } = request.query
-      const cards = await getCards({ search, category, platform })
+      const cards = await getCards({ search, category, platform }, token)
       return reply.send({ success: true, cards })
     } catch (err) {
-      return reply.status(500).send({ success: false, error: err.message })
+      const status = err.message === 'Unauthorized' ? 401 : 500
+      return reply.status(status).send({ success: false, error: err.message })
     }
   })
 
   app.delete('/cards/:id', async (request, reply) => {
+    const token = (request.headers.authorization || '').replace('Bearer ', '').trim()
+    if (!token) return reply.status(401).send({ success: false, error: 'Not logged in.' })
     try {
-      await deleteCard(request.params.id)
+      await deleteCard(request.params.id, token)
       return reply.send({ success: true })
     } catch (err) {
-      return reply.status(500).send({ success: false, error: err.message })
+      const status = err.message === 'Unauthorized' ? 401 : 500
+      return reply.status(status).send({ success: false, error: err.message })
     }
   })
 }
