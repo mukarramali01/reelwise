@@ -51,8 +51,15 @@ export default async function processRoute(app) {
       }
 
       if (token) {
-        const card = await saveCard(cardData, token)
-        return reply.send({ success: true, card, saved: true })
+        try {
+          const card = await saveCard(cardData, token)
+          return reply.send({ success: true, card, saved: true })
+        } catch (saveErr) {
+          if (saveErr.message === 'Unauthorized') {
+            return reply.send({ success: true, card: cardData, saved: false })
+          }
+          throw saveErr
+        }
       }
 
       return reply.send({ success: true, card: cardData, saved: false })
