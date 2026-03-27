@@ -40,20 +40,23 @@ function extraArgs(url) {
   return []
 }
 
-function friendlyError(raw) {
+function friendlyError(raw, url = '') {
   const msg = raw || ''
-  if (msg.includes('login required') || msg.includes('Login required') || msg.includes('login page') || msg.includes('Sign in to confirm') || msg.includes('authentication') || msg.includes('rate-limit reached or login'))
-    return 'Instagram is blocking this request — their platform requires authentication. Try a YouTube Short or TikTok link instead.'
-  if (msg.includes('429') || msg.includes('Too Many Requests') || msg.includes('rate-limit') || msg.includes('rate limit'))
-    return 'The server is being rate-limited. Please try again in a few minutes.'
-  if (msg.includes('bot'))
-    return 'Bot detection triggered. Please try again in a moment.'
+  const isIG = url.includes('instagram.com')
+  const isYT = isYouTube(url)
+
+  if (isIG && (msg.includes('login') || msg.includes('rate-limit') || msg.includes('not available')))
+    return 'Instagram requires authentication to download reels on a server. Try a YouTube Short or TikTok link instead.'
+  if (isYT && (msg.includes('Sign in') || msg.includes('bot') || msg.includes('429') || msg.includes('Too Many Requests')))
+    return 'YouTube is temporarily blocking this server. Please try again in a few minutes.'
   if (msg.includes('Private video') || msg.includes('private'))
     return 'This video is private. Please use a public video URL.'
+  if (msg.includes('login') || msg.includes('Sign in') || msg.includes('authentication'))
+    return 'This video requires login to access. Please use a public video URL.'
+  if (msg.includes('429') || msg.includes('Too Many Requests') || msg.includes('rate-limit'))
+    return 'The server is being rate-limited. Please try again in a few minutes.'
   if (msg.includes('404') || msg.includes('Not Found'))
     return 'Video not found. Check that the URL is correct.'
-  if (msg.includes('blocked'))
-    return 'This video is blocked in the server region.'
   if (msg.includes('not available') || msg.includes('unavailable'))
     return 'This video is unavailable or has been removed.'
   return 'Could not download this video. Make sure the URL is public and valid.'
@@ -73,7 +76,7 @@ export async function downloadAudio(url) {
     ])
     info = JSON.parse(infoJson)
   } catch (e) {
-    throw new Error(friendlyError(e.message))
+    throw new Error(friendlyError(e.message, url))
   }
 
   const duration = info.duration || 0
@@ -99,7 +102,7 @@ export async function downloadAudio(url) {
       ...extra,
     ])
   } catch (e) {
-    throw new Error(friendlyError(e.message))
+    throw new Error(friendlyError(e.message, url))
   }
 
   if (!existsSync(expectedMp3)) {
