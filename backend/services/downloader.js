@@ -26,27 +26,36 @@ function isYouTube(url) {
   return url.includes('youtube.com') || url.includes('youtu.be')
 }
 
+function isInstagram(url) {
+  return url.includes('instagram.com')
+}
+
 function extraArgs(url) {
   if (isYouTube(url)) {
     return ['--extractor-args', 'youtube:player_client=ios,web', '--no-check-certificates']
+  }
+  if (isInstagram(url)) {
+    return ['--extractor-args', 'instagram:api=graphql', '--no-check-certificates']
   }
   return []
 }
 
 function friendlyError(raw) {
   const msg = raw || ''
-  if (msg.includes('429') || msg.includes('Too Many Requests'))
-    return 'YouTube is rate-limiting our server right now. Please try again in a few minutes.'
-  if (msg.includes('Sign in to confirm') || msg.includes('bot'))
-    return 'YouTube is blocking automated access. Please try again shortly or use a different video.'
+  if (msg.includes('login required') || msg.includes('Login required') || msg.includes('login page') || msg.includes('Sign in to confirm') || msg.includes('authentication'))
+    return 'This platform requires login to access this content. Try a YouTube Short instead.'
+  if (msg.includes('429') || msg.includes('Too Many Requests') || msg.includes('rate-limit') || msg.includes('rate limit'))
+    return 'The server is being rate-limited by this platform. Please try again in a few minutes.'
+  if (msg.includes('bot'))
+    return 'Bot detection triggered. Please try again in a moment.'
   if (msg.includes('Private video') || msg.includes('private'))
     return 'This video is private. Please use a public video URL.'
-  if (msg.includes('not available') || msg.includes('unavailable'))
-    return 'This video is unavailable or has been removed.'
   if (msg.includes('404') || msg.includes('Not Found'))
     return 'Video not found. Check that the URL is correct.'
   if (msg.includes('blocked'))
     return 'This video is blocked in the server region.'
+  if (msg.includes('not available') || msg.includes('unavailable'))
+    return 'This video is unavailable or has been removed.'
   return 'Could not download this video. Make sure the URL is public and valid.'
 }
 
@@ -60,7 +69,6 @@ export async function downloadAudio(url) {
       url,
       '--dump-json',
       '--no-playlist',
-      '--quiet',
       ...extra,
     ])
     info = JSON.parse(infoJson)
