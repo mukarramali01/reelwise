@@ -1,8 +1,13 @@
-import { downloadAudio } from '../services/downloader.js'
+import { downloadAudio, detectPlatform } from '../services/downloader.js'
+import { getYouTubeData } from '../services/youtube.js'
 import { transcribe } from '../services/transcribe.js'
 import { extractInsights } from '../services/extract.js'
 import { saveCard } from '../services/db.js'
 import { unlink } from 'fs/promises'
+
+function isYouTube(url) {
+  return url.includes('youtube.com') || url.includes('youtu.be')
+}
 
 export default async function processRoute(app) {
   app.post('/process', {
@@ -17,24 +22,43 @@ export default async function processRoute(app) {
     },
   }, async (request, reply) => {
     const token = (request.headers.authorization || '').replace('Bearer ', '').trim()
-
     const { url } = request.body
     let audioPath = null
 
     try {
-      app.log.info(`[1/3] Downloading audio: ${url}`)
-      const videoInfo = await downloadAudio(url)
-      audioPath = videoInfo.path
+      let transcript, videoMeta
 
-      app.log.info('[2/3] Transcribing audio...')
-      const transcript = await transcribe(audioPath)
+      if (isYouTube(url)) {
+        // YouTube: use transcript API (bypasses IP blocking)
+        app.log.info(`[YouTube] Fetching transcript: ${url}`)
+        const ytData = await getYouTubeData(url)
+        transcript = ytData.transcript
+        videoMeta  = {
+          title:        ytData.title,
+          thumbnail:    ytData.thumbnail,
+          platform:     'YouTube',
+          uploader:     ytData.uploader,
+          uploader_url: ytData.uploader_url,
+          duration:     0,
+          description:  null,
+        }
+      } else {
+        // Other platforms: download audio + transcribe
+        app.log.info(`[1/3] Downloading audio: ${url}`)
+        const videoInfo = await downloadAudio(url)
+        audioPath = videoInfo.path
+
+        app.log.info('[2/3] Transcribing audio...')
+        transcript = await transcribe(audioPath)
+        videoMeta  = videoInfo
+      }
 
       if (!transcript || transcript.trim().length < 10) {
         throw new Error('Could not extract any speech from this video.')
       }
 
       app.log.info('[3/3] Extracting insights...')
-      const insights = await extractInsights(transcript, videoInfo.title, videoInfo.description)
+      const insights = await extractInsights(transcript, videoMeta.title, videoMeta.description)
 
       const cardData = {
         title:         insights.title,
@@ -43,11 +67,11 @@ export default async function processRoute(app) {
         summary:       insights.summary,
         transcript,
         url,
-        platform:      videoInfo.platform,
-        thumbnail_url: videoInfo.thumbnail,
-        uploader:      videoInfo.uploader,
-        uploader_url:  videoInfo.uploader_url,
-        duration:      Math.round(videoInfo.duration),
+        platform:      videoMeta.platform,
+        thumbnail_url: videoMeta.thumbnail,
+        uploader:      videoMeta.uploader,
+        uploader_url:  videoMeta.uploader_url,
+        duration:      Math.round(videoMeta.duration || 0),
       }
 
       if (token) {
