@@ -42,10 +42,10 @@ function extraArgs(url) {
 
 function friendlyError(raw) {
   const msg = raw || ''
-  if (msg.includes('login required') || msg.includes('Login required') || msg.includes('login page') || msg.includes('Sign in to confirm') || msg.includes('authentication'))
-    return 'This platform requires login to access this content. Try a YouTube Short instead.'
+  if (msg.includes('login required') || msg.includes('Login required') || msg.includes('login page') || msg.includes('Sign in to confirm') || msg.includes('authentication') || msg.includes('rate-limit reached or login'))
+    return 'Instagram is blocking this request — their platform requires authentication. Try a YouTube Short or TikTok link instead.'
   if (msg.includes('429') || msg.includes('Too Many Requests') || msg.includes('rate-limit') || msg.includes('rate limit'))
-    return 'The server is being rate-limited by this platform. Please try again in a few minutes.'
+    return 'The server is being rate-limited. Please try again in a few minutes.'
   if (msg.includes('bot'))
     return 'Bot detection triggered. Please try again in a moment.'
   if (msg.includes('Private video') || msg.includes('private'))
