@@ -58,8 +58,7 @@ export default async function processRoute(app) {
       return reply.send({ success: true, card: cardData, saved: false })
     } catch (err) {
       app.log.error(err.message)
-      const status = err.message === 'Unauthorized' ? 401 : 400
-      return reply.status(status).send({ success: false, error: err.message })
+      return reply.status(400).send({ success: false, error: err.message })
     } finally {
       if (audioPath) await unlink(audioPath).catch(() => {})
     }

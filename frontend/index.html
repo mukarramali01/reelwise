@@ -170,18 +170,12 @@
     #process-btn:not(:disabled):hover { opacity: 0.85; }
     .hint { font-size: 13px; color: var(--muted); text-align: center; }
 
-    /* ── STEPS ── */
+    /* ── LOADING BAR ── */
     #steps-box { display: none; margin: 28px auto; max-width: 680px; padding: 0 24px; }
-    .steps { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 24px; display: flex; flex-direction: column; gap: 14px; }
-    .step { display: flex; align-items: center; gap: 12px; font-size: 14px; color: var(--muted); transition: color 0.2s; }
-    .step.active { color: var(--text); }
-    .step.done   { color: var(--green); }
-    .step.error  { color: var(--red); }
-    .step-icon { width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid currentColor; display: flex; align-items: center; justify-content: center; font-size: 11px; flex-shrink: 0; }
-    .step.active .step-icon { border-color: var(--blue); color: var(--blue); }
-    .step.active .step-icon::after { content: ''; display: block; width: 8px; height: 8px; border-radius: 50%; background: var(--blue); animation: pulse 1s infinite; }
-    .step.done .step-icon { background: var(--green); border-color: var(--green); color: #fff; font-size: 12px; }
-    .step.done .step-icon::before { content: '✓'; }
+    .loading-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; text-align: center; }
+    .loading-label { font-size: 14px; color: var(--muted); margin-bottom: 16px; }
+    .progress-track { background: var(--surface2); border-radius: 99px; height: 6px; overflow: hidden; }
+    .progress-bar { height: 100%; border-radius: 99px; background: var(--blue); width: 0%; transition: width 0.6s ease; }
     @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
 
     /* ── ERROR ── */
@@ -320,10 +314,9 @@
     </div>
 
     <div id="steps-box">
-      <div class="steps">
-        <div class="step" id="step-1"><div class="step-icon"></div><span>Downloading audio from video...</span></div>
-        <div class="step" id="step-2"><div class="step-icon">2</div><span>Transcribing with Whisper AI...</span></div>
-        <div class="step" id="step-3"><div class="step-icon">3</div><span>Extracting key insights with LLaMA...</span></div>
+      <div class="loading-wrap">
+        <div class="loading-label" id="loading-label">Processing...</div>
+        <div class="progress-track"><div class="progress-bar" id="progress-bar"></div></div>
       </div>
     </div>
 
@@ -476,7 +469,15 @@
 
     btn.disabled = false
     btn.textContent = authMode === 'login' ? 'Sign in' : 'Create account'
-    if (error) setAuthMsg(error.message)
+    if (error) {
+      const msg = error.message || ''
+      if (authMode === 'login' && (msg.includes('Invalid login') || msg.includes('user not found') || msg.includes('No user found'))) {
+        switchTab('signup')
+        setAuthMsg('No account found — sign up to create one.')
+      } else {
+        setAuthMsg(msg)
+      }
+    }
   }
 
   document.getElementById('auth-password').addEventListener('keydown', e => { if (e.key === 'Enter') authSubmit() })
@@ -558,9 +559,32 @@
       </div>`
   }
 
-  // ── Steps ────────────────────────────────────────────────────────
-  function resetSteps() { for (let i=1;i<=3;i++){const el=document.getElementById('step-'+i);el.className='step';if(i>1)el.querySelector('.step-icon').textContent=i} }
-  function setStep(n, state) { for(let i=1;i<=3;i++){const el=document.getElementById('step-'+i);if(i<n)el.className='step done';else if(i===n)el.className='step '+state;else el.className='step'} }
+  // ── Progress bar ─────────────────────────────────────────────────
+  let progressInterval = null
+  function startProgress() {
+    const bar = document.getElementById('progress-bar')
+    bar.style.transition = 'none'
+    bar.style.width = '0%'
+    let pct = 0
+    progressInterval = setInterval(() => {
+      pct = pct < 85 ? pct + (Math.random() * 4 + 1) : pct + 0.2
+      if (pct > 90) pct = 90
+      bar.style.transition = 'width 0.6s ease'
+      bar.style.width = pct + '%'
+    }, 800)
+  }
+  function finishProgress() {
+    clearInterval(progressInterval)
+    const bar = document.getElementById('progress-bar')
+    bar.style.transition = 'width 0.4s ease'
+    bar.style.width = '100%'
+  }
+  function resetProgress() {
+    clearInterval(progressInterval)
+    const bar = document.getElementById('progress-bar')
+    bar.style.transition = 'none'
+    bar.style.width = '0%'
+  }
 
   // ── Process video ────────────────────────────────────────────────
   async function processVideo() {
@@ -573,22 +597,17 @@
     document.getElementById('error-box').style.display = 'none'
     document.getElementById('result-box').style.display = 'none'
     document.getElementById('save-prompt').style.display = 'none'
-    resetSteps()
-    setStep(1, 'active')
-    const timers = [
-      setTimeout(() => setStep(2,'active'), 4000),
-      setTimeout(() => setStep(3,'active'), 9000),
-    ]
+    startProgress()
     try {
       const res = await fetch(`${API}/process`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
         body: JSON.stringify({ url }),
       })
-      timers.forEach(clearTimeout)
       const data = await res.json()
       if (!data.success) throw new Error(data.error)
-      for (let i=1;i<=3;i++) document.getElementById('step-'+i).className='step done'
+      finishProgress()
+      setTimeout(() => { document.getElementById('steps-box').style.display = 'none'; resetProgress() }, 500)
       document.getElementById('result-card').innerHTML = buildCard(data.card, false)
       if (data.saved) {
         document.getElementById('result-label').textContent = 'Saved to your library'
@@ -602,7 +621,7 @@
       document.getElementById('url-input').value = ''
       document.querySelectorAll('.platform-badge').forEach(b => b.classList.remove('active'))
     } catch (err) {
-      timers.forEach(clearTimeout)
+      resetProgress()
       document.getElementById('error-msg').textContent = err.message
       document.getElementById('error-box').style.display = 'block'
       document.getElementById('steps-box').style.display = 'none'
