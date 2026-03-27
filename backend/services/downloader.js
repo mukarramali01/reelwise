@@ -32,7 +32,7 @@ function isInstagram(url) {
 
 function extraArgs(url) {
   if (isYouTube(url)) {
-    return ['--extractor-args', 'youtube:player_client=ios,web', '--no-check-certificates']
+    return ['--no-check-certificates']
   }
   if (isInstagram(url)) {
     return ['--extractor-args', 'instagram:api=graphql', '--no-check-certificates']

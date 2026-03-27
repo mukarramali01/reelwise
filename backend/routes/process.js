@@ -29,18 +29,32 @@ export default async function processRoute(app) {
       let transcript, videoMeta
 
       if (isYouTube(url)) {
-        // YouTube: use transcript API (bypasses IP blocking)
+        // YouTube: try captions API first, fall back to yt-dlp + Whisper
         app.log.info(`[YouTube] Fetching transcript: ${url}`)
-        const ytData = await getYouTubeData(url)
-        transcript = ytData.transcript
-        videoMeta  = {
-          title:        ytData.title,
-          thumbnail:    ytData.thumbnail,
-          platform:     'YouTube',
-          uploader:     ytData.uploader,
-          uploader_url: ytData.uploader_url,
-          duration:     0,
-          description:  null,
+        let usedCaptions = false
+        try {
+          const ytData = await getYouTubeData(url)
+          transcript = ytData.transcript
+          videoMeta  = {
+            title:        ytData.title,
+            thumbnail:    ytData.thumbnail,
+            platform:     'YouTube',
+            uploader:     ytData.uploader,
+            uploader_url: ytData.uploader_url,
+            duration:     0,
+            description:  null,
+          }
+          usedCaptions = true
+        } catch (captionErr) {
+          if (!captionErr.message.includes('No captions')) throw captionErr
+          app.log.info('[YouTube] No captions, falling back to audio download...')
+        }
+
+        if (!usedCaptions) {
+          const videoInfo = await downloadAudio(url)
+          audioPath = videoInfo.path
+          transcript = await transcribe(audioPath)
+          videoMeta  = { ...videoInfo, platform: 'YouTube' }
         }
       } else {
         // Other platforms: download audio + transcribe
