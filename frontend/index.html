@@ -32,14 +32,19 @@
       min-height: 100vh;
     }
 
-    /* ── AUTH SCREEN ── */
+    /* ── AUTH MODAL ── */
     #auth-screen {
-      display: flex;
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.78);
+      backdrop-filter: blur(6px);
       align-items: center;
       justify-content: center;
-      min-height: 100vh;
+      z-index: 1000;
       padding: 24px;
     }
+    #auth-screen.open { display: flex; }
     .auth-box {
       background: var(--surface);
       border: 1px solid var(--border);
@@ -47,7 +52,15 @@
       padding: 40px 36px;
       width: 100%;
       max-width: 400px;
+      position: relative;
     }
+    .auth-close {
+      position: absolute; top: 14px; right: 16px;
+      background: none; border: none; color: var(--muted);
+      font-size: 20px; cursor: pointer; line-height: 1;
+      padding: 4px 6px; border-radius: 6px;
+    }
+    .auth-close:hover { color: var(--text); }
     .auth-logo { font-size: 24px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 8px; }
     .auth-logo span { color: var(--blue); }
     .auth-tagline { color: var(--muted); font-size: 14px; margin-bottom: 32px; }
@@ -76,8 +89,25 @@
     .auth-msg.error { color: #ff8080; }
     .auth-msg.success { color: var(--green); }
 
+    /* ── SAVE PROMPT ── */
+    .save-prompt {
+      margin-top: 16px;
+      background: linear-gradient(135deg, #131e30 0%, #16162a 100%);
+      border: 1px solid var(--blue);
+      border-radius: var(--radius);
+      padding: 22px 24px;
+      text-align: center;
+    }
+    .save-prompt h3 { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+    .save-prompt p { color: var(--muted); font-size: 13px; margin-bottom: 16px; }
+    .save-prompt-btns { display: flex; gap: 10px; justify-content: center; }
+    .btn-signup { background: var(--blue); color: #fff; border: none; border-radius: 8px; padding: 10px 24px; font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity 0.15s; }
+    .btn-signup:hover { opacity: 0.88; }
+    .btn-signin { background: var(--surface2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 10px 24px; font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.15s; }
+    .btn-signin:hover { background: #2a2a2a; }
+
     /* ── APP ── */
-    #app { display: none; }
+    #app { display: block; }
 
     /* ── NAV ── */
     nav {
@@ -225,11 +255,12 @@
 </head>
 <body>
 
-<!-- ══ AUTH SCREEN ══ -->
+<!-- ══ AUTH MODAL ══ -->
 <div id="auth-screen">
   <div class="auth-box">
+    <button class="auth-close" id="auth-close-btn" onclick="closeAuthModal()" style="display:none">✕</button>
     <div class="auth-logo">Reel<span>Wise</span></div>
-    <p class="auth-tagline">Turn short videos into structured knowledge</p>
+    <p class="auth-tagline" id="auth-tagline">Turn short videos into structured knowledge</p>
 
     <div class="auth-tabs">
       <button class="auth-tab active" id="tab-login" onclick="switchTab('login')">Sign in</button>
@@ -258,11 +289,12 @@
     <div class="logo">Reel<span>Wise</span></div>
     <div class="nav-right">
       <button class="nav-tab active" onclick="showView('home')">Save Video</button>
-      <button class="nav-tab" onclick="showView('library'); loadLibrary()">
-        Library <span id="library-count">0</span>
+      <button class="nav-tab" onclick="navLibrary()">
+        Library <span id="library-count"></span>
       </button>
-      <span class="nav-user" id="nav-user-email"></span>
-      <button class="nav-logout" onclick="signOut()">Logout</button>
+      <span class="nav-user" id="nav-user-email" style="display:none"></span>
+      <button class="nav-logout" id="nav-signin-btn" onclick="openAuthModal('login')" style="display:none">Sign in</button>
+      <button class="nav-logout" id="nav-logout-btn" onclick="signOut()" style="display:none">Logout</button>
     </div>
   </nav>
 
@@ -292,7 +324,6 @@
         <div class="step" id="step-1"><div class="step-icon"></div><span>Downloading audio from video...</span></div>
         <div class="step" id="step-2"><div class="step-icon">2</div><span>Transcribing with Whisper AI...</span></div>
         <div class="step" id="step-3"><div class="step-icon">3</div><span>Extracting key insights with LLaMA...</span></div>
-        <div class="step" id="step-4"><div class="step-icon">4</div><span>Saving to your library...</span></div>
       </div>
     </div>
 
@@ -301,8 +332,16 @@
     </div>
 
     <div id="result-box">
-      <div class="result-label">Saved to your library</div>
+      <div class="result-label" id="result-label">Insights</div>
       <div id="result-card"></div>
+      <div class="save-prompt" id="save-prompt" style="display:none">
+        <h3>Save this to your library</h3>
+        <p>Create a free account to build your personal knowledge library.</p>
+        <div class="save-prompt-btns">
+          <button class="btn-signup" onclick="openAuthModal('signup')">Sign up free</button>
+          <button class="btn-signin" onclick="openAuthModal('login')">Sign in</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -339,18 +378,47 @@
 
   const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON)
   let currentSession = null
+  let pendingCard = null  // card data waiting to be saved after login
 
   // ── Auth state ───────────────────────────────────────────────────
-  sb.auth.onAuthStateChange((event, session) => {
+  sb.auth.onAuthStateChange(async (event, session) => {
+    const wasNull = !currentSession
     currentSession = session
     if (session) {
-      document.getElementById('auth-screen').style.display = 'none'
-      document.getElementById('app').style.display = 'block'
+      closeAuthModal()
       document.getElementById('nav-user-email').textContent = session.user.email
-      refreshLibraryCount()
+      document.getElementById('nav-user-email').style.display = ''
+      document.getElementById('nav-signin-btn').style.display = 'none'
+      document.getElementById('nav-logout-btn').style.display = ''
+      // Auto-save pending card if there is one
+      if (pendingCard) {
+        const cardToSave = pendingCard
+        pendingCard = null
+        try {
+          const res = await fetch(`${API}/cards`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+            body: JSON.stringify(cardToSave),
+          })
+          const data = await res.json()
+          if (data.success) {
+            document.getElementById('result-label').textContent = 'Saved to your library'
+            document.getElementById('save-prompt').style.display = 'none'
+            refreshLibraryCount()
+          }
+        } catch {}
+      } else {
+        refreshLibraryCount()
+      }
     } else {
-      document.getElementById('auth-screen').style.display = 'flex'
-      document.getElementById('app').style.display = 'none'
+      document.getElementById('nav-user-email').style.display = 'none'
+      document.getElementById('nav-user-email').textContent = ''
+      document.getElementById('nav-signin-btn').style.display = ''
+      document.getElementById('nav-logout-btn').style.display = 'none'
+      if (!wasNull) {
+        // just logged out — open auth
+        openAuthModal('login', false)
+      }
     }
   })
 
@@ -358,7 +426,20 @@
     return currentSession?.access_token || ''
   }
 
-  // ── Auth UI ──────────────────────────────────────────────────────
+  // ── Auth modal ───────────────────────────────────────────────────
+  function openAuthModal(mode = 'login', closeable = true) {
+    switchTab(mode)
+    document.getElementById('auth-tagline').textContent = pendingCard
+      ? 'Sign in or sign up to save your insight card'
+      : 'Turn short videos into structured knowledge'
+    document.getElementById('auth-close-btn').style.display = closeable ? '' : 'none'
+    document.getElementById('auth-screen').classList.add('open')
+  }
+
+  function closeAuthModal() {
+    document.getElementById('auth-screen').classList.remove('open')
+  }
+
   let authMode = 'login'
   function switchTab(mode) {
     authMode = mode
@@ -403,6 +484,12 @@
 
   async function signOut() {
     await sb.auth.signOut()
+  }
+
+  function navLibrary() {
+    if (!currentSession) { openAuthModal('login'); return }
+    showView('library')
+    loadLibrary()
   }
 
   // ── Platform detection ───────────────────────────────────────────
@@ -472,8 +559,8 @@
   }
 
   // ── Steps ────────────────────────────────────────────────────────
-  function resetSteps() { for (let i=1;i<=4;i++){const el=document.getElementById('step-'+i);el.className='step';if(i>1)el.querySelector('.step-icon').textContent=i} }
-  function setStep(n, state) { for(let i=1;i<=4;i++){const el=document.getElementById('step-'+i);if(i<n)el.className='step done';else if(i===n)el.className='step '+state;else el.className='step'} }
+  function resetSteps() { for (let i=1;i<=3;i++){const el=document.getElementById('step-'+i);el.className='step';if(i>1)el.querySelector('.step-icon').textContent=i} }
+  function setStep(n, state) { for(let i=1;i<=3;i++){const el=document.getElementById('step-'+i);if(i<n)el.className='step done';else if(i===n)el.className='step '+state;else el.className='step'} }
 
   // ── Process video ────────────────────────────────────────────────
   async function processVideo() {
@@ -485,12 +572,12 @@
     document.getElementById('steps-box').style.display = 'block'
     document.getElementById('error-box').style.display = 'none'
     document.getElementById('result-box').style.display = 'none'
+    document.getElementById('save-prompt').style.display = 'none'
     resetSteps()
     setStep(1, 'active')
     const timers = [
       setTimeout(() => setStep(2,'active'), 4000),
       setTimeout(() => setStep(3,'active'), 9000),
-      setTimeout(() => setStep(4,'active'), 13000),
     ]
     try {
       const res = await fetch(`${API}/process`, {
@@ -501,10 +588,17 @@
       timers.forEach(clearTimeout)
       const data = await res.json()
       if (!data.success) throw new Error(data.error)
-      for (let i=1;i<=4;i++) document.getElementById('step-'+i).className='step done'
+      for (let i=1;i<=3;i++) document.getElementById('step-'+i).className='step done'
       document.getElementById('result-card').innerHTML = buildCard(data.card, false)
+      if (data.saved) {
+        document.getElementById('result-label').textContent = 'Saved to your library'
+        refreshLibraryCount()
+      } else {
+        document.getElementById('result-label').textContent = 'Insights'
+        pendingCard = data.card
+        document.getElementById('save-prompt').style.display = 'block'
+      }
       document.getElementById('result-box').style.display = 'block'
-      refreshLibraryCount()
       document.getElementById('url-input').value = ''
       document.querySelectorAll('.platform-badge').forEach(b => b.classList.remove('active'))
     } catch (err) {
@@ -575,13 +669,14 @@
   }
 
   async function refreshLibraryCount() {
+    if (!getToken()) return
     try {
       const res = await fetch(`${API}/cards`, { headers: { 'Authorization': `Bearer ${getToken()}` } })
       const data = await res.json()
       updateLibraryCount((data.cards||[]).length)
     } catch {}
   }
-  function updateLibraryCount(n) { document.getElementById('library-count').textContent = n }
+  function updateLibraryCount(n) { document.getElementById('library-count').textContent = n || '' }
 </script>
 </body>
 </html>
