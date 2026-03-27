@@ -41,7 +41,7 @@ export async function downloadAudio(url) {
   const outputTemplate = join(tmpdir(), `reelwise_${id}.%(ext)s`)
   const expectedMp3 = join(tmpdir(), `reelwise_${id}.mp3`)
 
-  const ffmpegPath = process.env.FFMPEG_PATH || 'ffmpeg'
+  const ffmpegPath = process.env.FFMPEG_PATH || '/usr/bin/ffmpeg'
 
   await ytDlp.execPromise([
     url,
