@@ -327,14 +327,6 @@
     <div id="result-box">
       <div class="result-label" id="result-label">Insights</div>
       <div id="result-card"></div>
-      <div class="save-prompt" id="save-prompt" style="display:none">
-        <h3>Save this to your library</h3>
-        <p>Create a free account to build your personal knowledge library.</p>
-        <div class="save-prompt-btns">
-          <button class="btn-signup" onclick="openAuthModal('signup')">Sign up free</button>
-          <button class="btn-signin" onclick="openAuthModal('login')">Sign in</button>
-        </div>
-      </div>
     </div>
   </div>
 
@@ -371,7 +363,7 @@
 
   const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON)
   let currentSession = null
-  let pendingCard = null  // card data waiting to be saved after login
+  let pendingUrl = null  // URL waiting to process after login
 
   // ── Auth state ───────────────────────────────────────────────────
   sb.auth.onAuthStateChange(async (event, session) => {
@@ -383,23 +375,11 @@
       document.getElementById('nav-user-email').style.display = ''
       document.getElementById('nav-signin-btn').style.display = 'none'
       document.getElementById('nav-logout-btn').style.display = ''
-      // Auto-save pending card if there is one
-      if (pendingCard) {
-        const cardToSave = pendingCard
-        pendingCard = null
-        try {
-          const res = await fetch(`${API}/cards`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-            body: JSON.stringify(cardToSave),
-          })
-          const data = await res.json()
-          if (data.success) {
-            document.getElementById('result-label').textContent = 'Saved to your library'
-            document.getElementById('save-prompt').style.display = 'none'
-            refreshLibraryCount()
-          }
-        } catch {}
+      if (pendingUrl) {
+        const url = pendingUrl
+        pendingUrl = null
+        document.getElementById('url-input').value = url
+        processVideo()
       } else {
         refreshLibraryCount()
       }
@@ -408,10 +388,7 @@
       document.getElementById('nav-user-email').textContent = ''
       document.getElementById('nav-signin-btn').style.display = ''
       document.getElementById('nav-logout-btn').style.display = 'none'
-      if (!wasNull) {
-        // just logged out — open auth
-        openAuthModal('login', false)
-      }
+      if (!wasNull) openAuthModal('login', false)
     }
   })
 
@@ -422,8 +399,8 @@
   // ── Auth modal ───────────────────────────────────────────────────
   function openAuthModal(mode = 'login', closeable = true) {
     switchTab(mode)
-    document.getElementById('auth-tagline').textContent = pendingCard
-      ? 'Sign in or sign up to save your insight card'
+    document.getElementById('auth-tagline').textContent = pendingUrl
+      ? 'Sign in or create an account to save this video'
       : 'Turn short videos into structured knowledge'
     document.getElementById('auth-close-btn').style.display = closeable ? '' : 'none'
     document.getElementById('auth-screen').classList.add('open')
@@ -590,13 +567,19 @@
   async function processVideo() {
     const url = document.getElementById('url-input').value.trim()
     if (!url) return
+
+    if (!currentSession) {
+      pendingUrl = url
+      openAuthModal('signup')
+      return
+    }
+
     const btn = document.getElementById('process-btn')
     btn.disabled = true
     btn.innerHTML = '<span class="spinner"></span>'
     document.getElementById('steps-box').style.display = 'block'
     document.getElementById('error-box').style.display = 'none'
     document.getElementById('result-box').style.display = 'none'
-    document.getElementById('save-prompt').style.display = 'none'
     startProgress()
     try {
       const res = await fetch(`${API}/process`, {
@@ -609,17 +592,11 @@
       finishProgress()
       setTimeout(() => { document.getElementById('steps-box').style.display = 'none'; resetProgress() }, 500)
       document.getElementById('result-card').innerHTML = buildCard(data.card, false)
-      if (data.saved) {
-        document.getElementById('result-label').textContent = 'Saved to your library'
-        refreshLibraryCount()
-      } else {
-        document.getElementById('result-label').textContent = 'Insights'
-        pendingCard = data.card
-        document.getElementById('save-prompt').style.display = 'block'
-      }
+      document.getElementById('result-label').textContent = 'Saved to your library'
       document.getElementById('result-box').style.display = 'block'
       document.getElementById('url-input').value = ''
       document.querySelectorAll('.platform-badge').forEach(b => b.classList.remove('active'))
+      refreshLibraryCount()
     } catch (err) {
       resetProgress()
       document.getElementById('error-msg').textContent = err.message
